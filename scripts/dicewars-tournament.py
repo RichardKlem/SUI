@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
-from signal import signal, SIGCHLD
 from argparse import ArgumentParser
-
-import math
 import itertools
-from utils import run_ai_only_game, get_nickname, BoardDefinition, SingleLineReporter, PlayerPerformance
-from utils import TournamentCombatantsProvider, EvaluationCombatantsProvider
-from utils import column_t
-import random
-import sys
+import math
 import pickle
+import random
+from signal import SIGCHLD, signal
+import sys
 import traceback
 
+from utils import (BoardDefinition, get_nickname, PlayerPerformance, run_ai_only_game,
+                   SingleLineReporter)
+from utils import column_t
+from utils import EvaluationCombatantsProvider, TournamentCombatantsProvider
 
 parser = ArgumentParser(prog='Dice_Wars')
 parser.add_argument('-p', '--port', help="Server port", type=int, default=5005)
 parser.add_argument('-a', '--address', help="Server address", default='127.0.0.1')
 parser.add_argument('-b', '--board', help="Seed for generating board", type=int)
-parser.add_argument('-n', '--nb-boards', help="How many boards should be played", type=int, required=True)
-parser.add_argument('-g', '--game-size', help="How many players should play a game", type=int, required=True)
+parser.add_argument('-n', '--nb-boards', help="How many boards should be played", type=int,
+                    required=True)
+parser.add_argument('-g', '--game-size', help="How many players should play a game", type=int,
+                    required=True)
 parser.add_argument('-s', '--seed', help="Seed sampling players for a game", type=int)
 parser.add_argument('-l', '--logdir', help="Folder to store last running logs in.")
 parser.add_argument('--ai-under-test', help="Only play this AI against others")
 parser.add_argument('-d', '--debug', action='store_true')
-parser.add_argument('-r', '--report', help="State the game number on the stdout", action='store_true')
+parser.add_argument('-r', '--report', help="State the game number on the stdout",
+                    action='store_true')
 parser.add_argument('--save', help="Where to put pickled GameSummaries")
 parser.add_argument('--load', help="Which GameSummaries to start from")
 
@@ -110,15 +113,16 @@ def main():
             combatants = combatants_provider.get_combatants(args.game_size)
             nb_permutations, permutations_generator = rotational_permunations_generator(combatants)
             for i, permuted_combatants in enumerate(permutations_generator):
-                reporter.report('\r{} {}/{} {}'.format(boards_played, i+1, nb_permutations, ' vs. '.join(permuted_combatants)))
+                reporter.report('\r{} {}/{} {}'.format(boards_played, i + 1, nb_permutations,
+                                                       ' vs. '.join(permuted_combatants)))
                 game_summary = run_ai_only_game(
-                    args.port, args.address, procs, permuted_combatants,
-                    board_definition,
-                    fixed=UNIVERSAL_SEED,
-                    client_seed=UNIVERSAL_SEED,
-                    logdir=args.logdir,
-                    debug=args.debug,
-                )
+                        args.port, args.address, procs, permuted_combatants,
+                        board_definition,
+                        fixed=UNIVERSAL_SEED,
+                        client_seed=UNIVERSAL_SEED,
+                        logdir=args.logdir,
+                        debug=args.debug,
+                        )
                 all_games.append(game_summary)
     except (Exception, KeyboardInterrupt) as e:
         sys.stderr.write("Breaking the tournament because of {}\n".format(repr(e)))
@@ -138,7 +142,8 @@ def main():
             if get_nickname(player) in participants:
                 players_info[player]['games'].append(game)
 
-    performances = [PlayerPerformance(player, info['games'], PLAYING_AIs) for player, info in players_info.items()]
+    performances = [PlayerPerformance(player, info['games'], PLAYING_AIs) for player, info in
+                    players_info.items()]
     performances.sort(key=lambda perf: perf.winrate, reverse=True)
 
     perf_strings = [performances[0].competitors_header()] + [str(perf) for perf in performances]
