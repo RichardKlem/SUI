@@ -44,6 +44,7 @@ def signal_handler(signum, frame):
 
 
 PLAYING_AIs = [
+    'maxn_vector'
     'dt.rand',
     'dt.sdc',
     'dt.ste',
