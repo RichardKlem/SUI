@@ -192,7 +192,7 @@ class TournamentCombatantsProvider:
             rare_opponent_ind = (pivot_ind + 1) % len(self.players)
         else:
             rare_opponent_ind = np.argmin(self.game_numbers[pivot_ind])
-        assert(rare_opponent_ind != pivot_ind)
+        assert(rare_opponent_ind != pivot_ind), f"{rare_opponent_ind} != {pivot_ind}"
 
         possible_competitors = [self.players.index(ai) for ai in self.players if self.players.index(ai) not in [pivot_ind, rare_opponent_ind]]
         random.shuffle(possible_competitors)

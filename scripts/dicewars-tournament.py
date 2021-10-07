@@ -10,6 +10,7 @@ from utils import column_t
 import random
 import sys
 import pickle
+import traceback
 
 
 parser = ArgumentParser(prog='Dice_Wars')
@@ -121,6 +122,7 @@ def main():
                 all_games.append(game_summary)
     except (Exception, KeyboardInterrupt) as e:
         sys.stderr.write("Breaking the tournament because of {}\n".format(repr(e)))
+        traceback.print_exc()
         for p in procs:
             p.kill()
 
