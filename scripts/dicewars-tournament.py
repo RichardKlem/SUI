@@ -153,4 +153,8 @@ def main():
 
 
 if __name__ == '__main__':
+    if len(PLAYING_AIs) < 3:
+        sys.exit("\nERROR:\n    Number of playing bots must be grater than 2.\n"
+                 "    Add more playing AIs into PLAYING_AI list in dicewars-tournament.py "
+                 "file\n    or use dicewars-ai-only.py script instead.")
     main()
