@@ -44,17 +44,17 @@ def signal_handler(signum, frame):
 
 
 PLAYING_AIs = [
-    'maxn_vector'
+    'maxn_vector',
     'dt.rand',
     'dt.sdc',
     'dt.ste',
-    # 'dt.stei',
-    # 'dt.wpm_d',
-    # 'dt.wpm_s',
+    'dt.stei',
+    'dt.wpm_d',
+    'dt.wpm_s',
     'dt.wpm_c',
     'kb.sdc_at',
-    # 'kb.xlogin42',
-    'kb.xlogin00',
+    'kb.xlogin42',
+    'kb.xlogin00'
 ]
 UNIVERSAL_SEED = 42
 
