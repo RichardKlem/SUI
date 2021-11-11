@@ -81,7 +81,8 @@ def main():
             if args.debug:
                 cmd.extend(['--debug', 'DEBUG'])
 
-            procs.append(Popen(cmd, stderr=log_file_producer(args.logdir, 'client-{}.log'.format(ai))))
+            procs.append(Popen(cmd))
+            #procs.append(Popen(cmd, stderr=log_file_producer(args.logdir, 'client-{}.log'.format(ai))))
 
         for p in procs:
             p.wait()
