@@ -31,7 +31,7 @@ def player_color(player_name):
 class MainWindow(QWidget):
     """Main window of the GUI containing the game board
     """
-    def __init__(self, game, area_text_fn=lambda area: str(area.get_dice())):
+    def __init__(self, game, area_text_fn=lambda area: str(area.get_dice()) + " " + str(area.get_name())):
         """
         Parameters
         ----------
@@ -80,6 +80,7 @@ class MainWindow(QWidget):
         for k, area in self.board.areas.items():
             lines = []
             first_hex = True
+            second_hex = False
 
             color = player_color(area.get_owner_name())
             if self.activated_area_name == int(k):
@@ -90,16 +91,33 @@ class MainWindow(QWidget):
                 polygon = QPolygon([QPoint(*corner) for corner in hexgrid.corners(h)])
                 self.qp.drawPolygon(polygon)
 
+                if second_hex:
+                    self.qp.save()
+                    rect = QRectF(*hexgrid.bounding_box(h))
+                    self.qp.setBrush(QColor(255, 0, 0))
+                    self.qp.setPen(self.pen)
+
+                    self.font.setPixelSize(13)
+
+                    self.qp.setFont(self.font)
+                    self.qp.setRenderHint(QPainter.TextAntialiasing)
+
+                    self.qp.drawText(rect, Qt.AlignCenter, self.area_text_fn(area).split(" ")[1])
+                    second_hex = False
+                    self.qp.restore()
+
                 if first_hex:
                     self.qp.save()
                     rect = QRectF(*hexgrid.bounding_box(h))
                     self.qp.setBrush(QColor(0, 0, 0))
                     self.qp.setPen(self.pen)
+                    self.font.setPixelSize(20)
                     self.qp.setFont(self.font)
                     self.qp.setRenderHint(QPainter.TextAntialiasing)
 
-                    self.qp.drawText(rect, Qt.AlignCenter, self.area_text_fn(area))
+                    self.qp.drawText(rect, Qt.AlignCenter, self.area_text_fn(area).split(" ")[0])
                     first_hex = False
+                    second_hex = True
                     self.qp.restore()
 
                 for n in h.neighbours():
