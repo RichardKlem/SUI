@@ -99,7 +99,9 @@ class AI:
     # nb_turns_this_game      number of turns ended so far
     # previous_time_left      time (in seconds) left after last decision making
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-        print("Turn: %s" % nb_turns_this_game, file=sys.stderr)
+        # limit the number of attacks to 2 -- just a temporary solution
+        if nb_moves_this_turn >= 2:
+            return EndTurnCommand()
 
         # use every transfer, before starting a maxn algorithm if possible
         if not self.tranfers_todo and nb_transfers_this_turn < self.max_transfers:
