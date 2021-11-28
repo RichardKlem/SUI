@@ -7,11 +7,11 @@ import numpy as np
 from copy import deepcopy
 
 # MUST be optimized to achieve the best performance!
-SCORE_WEIGHT = 1  # size of the biggest region
-REGIONS_WEIGHT = 1  # number of regions
-AREAS_WEIGHT = 4  # number of areas (region is contains areas)
+SCORE_WEIGHT = 5  # size of the biggest region
+REGIONS_WEIGHT = 10  # number of regions
+AREAS_WEIGHT = 15  # number of areas (region contains areas)
 BORDER_FILLING_WEIGHT = 3  # number which indicates how full are border areas
-BORDERS_WEIGHT = 1  # number of border areas
+BORDERS_WEIGHT = 3  # number of border areas
 NEIGHBOURS_WEIGHT = 1  # number which indicates how well connected are regions
 
 MAXN_MAX_DEPTH = 1
