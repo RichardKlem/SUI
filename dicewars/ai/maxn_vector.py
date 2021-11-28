@@ -115,7 +115,12 @@ class AI:
 
         turn_type, source, target = self.maxn.calculate_best_turn(board, nb_moves_this_turn, nb_transfers_this_turn)
 
-        print("Action: %s" % turn_type, file=sys.stderr)
+        time_end = datetime.datetime.now()
+        time_delta = time_end - time_start
+
+        #print(f"Duration of evaluation: {time_delta.microseconds / 1000000}s", file=sys.stderr)
+        #print(f"Average time per node: {round((time_delta.microseconds / 1000) / self.maxn.inspected_leaf_nodes, 5)}ms", file=sys.stderr)
+
         if turn_type == "attack":
             return BattleCommand(source.get_name(), target.get_name())
         elif turn_type == "transfer":

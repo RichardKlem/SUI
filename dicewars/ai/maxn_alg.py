@@ -26,7 +26,8 @@ class MaxN:
         self.player_index = players_order.index(player_name)
         self.players_order = players_order
         self.player_name = player_name
-        print("Init MAXN", file=sys.stderr)
+        self.all_inspected_nodes = 0
+        self.all_inspected_leaf_nodes = 0
 
     def deep_copy_board(self, board):
         # just to correctly create a Board object
@@ -159,6 +160,8 @@ class MaxN:
         self.inspected_nodes = 0
         self.inspected_leaf_nodes = 0
         next_move = self.maxn_recursive(board, 0, self.player_index)
-        print(f"Inspected nodes: {self.inspected_nodes}", file=sys.stderr)
-        print(f"Inspected leaf nodes: {self.inspected_leaf_nodes}", file=sys.stderr)
+
+        self.all_inspected_nodes += self.inspected_nodes
+        self.all_inspected_leaf_nodes += self.inspected_leaf_nodes
+
         return next_move
