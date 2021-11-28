@@ -1,7 +1,7 @@
 import copy
 import sys
 import math
-from dicewars.ai.utils import possible_attacks, probability_of_successful_attack
+from dicewars.ai.utils import possible_attacks, probability_of_successful_attack, probability_of_holding_area
 from dicewars.client.game.board import Board
 import numpy as np
 from copy import deepcopy
@@ -117,7 +117,14 @@ class MaxN:
         for source, target in possible_attacks(board, self.players_order[player_index]):
             # if we do not succed with the attack it wont help us in any way so we will just ignore this attack
             probability_of_success = probability_of_successful_attack(board, source.get_name(), target.get_name())
-            if probability_of_success < 0.55 and source.get_dice() < 4:
+            probability_of_holding = probability_of_holding_area(board, target.get_name(), target.get_dice(), self.players_order[player_index])
+            both_areas_have_8 = target.get_dice() == 8 and target.get_dice() == 8
+
+            # do not attack if:
+            #   probability of success is lower than 65% and we have less than 4 dices
+            #   probability of holding the area until next turn is lower than 30 % (2 players), 40 % (4 players), ...
+            if ((probability_of_success < 0.55 and source.get_dice() < 4) or
+                (probability_of_holding < (0.20 + len(self.players_order)*0.05) and not both_areas_have_8)):
                 continue
             # makes a deep copy of a board
             board_copy = self.deep_copy_board(board)
