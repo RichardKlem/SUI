@@ -30,6 +30,23 @@ class MaxN:
         self.all_inspected_nodes = 0
         self.all_inspected_leaf_nodes = 0
 
+        # weights
+        self.score_weight = SCORE_WEIGHT
+        self.regions_weight = REGIONS_WEIGHT
+        self.areas_weight = AREAS_WEIGHT
+        self.border_filling_weight = BORDER_FILLING_WEIGHT
+        self.borders_weight = BORDERS_WEIGHT
+        self.neighbours_weight = NEIGHBOURS_WEIGHT
+
+    def set_weights(self, board):
+        # TODO: use DNN to set weights
+        self.score_weight = SCORE_WEIGHT
+        self.regions_weight = REGIONS_WEIGHT
+        self.areas_weight = AREAS_WEIGHT
+        self.border_filling_weight = BORDER_FILLING_WEIGHT
+        self.borders_weight = BORDERS_WEIGHT
+        self.neighbours_weight = NEIGHBOURS_WEIGHT
+
     def deep_copy_board(self, board):
         # just to correctly create a Board object
         board_copy = copy.deepcopy(board)
@@ -93,12 +110,15 @@ class MaxN:
         borders = border_areas_num
         neighbours = possible_transfers_num
 
-        vector = [score * SCORE_WEIGHT,
-                  regions * REGIONS_WEIGHT,
-                  areas * AREAS_WEIGHT,
-                  border_filling * BORDER_FILLING_WEIGHT,
-                  borders * BORDERS_WEIGHT,
-                  neighbours * NEIGHBOURS_WEIGHT]
+        # call DNN to adjust weights for each leaf node
+        self.set_weights(board)
+
+        vector = [score * self.score_weight,
+                  regions * self.regions_weight,
+                  areas * self.areas_weight,
+                  border_filling * self.border_filling_weight,
+                  borders * self.borders_weight,
+                  neighbours * self.neighbours_weight]
 
         # use only sum of vector instead of length, because DNN can simulate this internally
         return sum(vector)
