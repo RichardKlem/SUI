@@ -22,6 +22,9 @@ class AI:
         self.maxn = MaxN(player_name, players_order)
         self.tranfers_todo = []
         self.max_transfers = max_transfers
+        self.fisher_increment = 0.25
+        self.time_per_leaf_node = 1 # in seconds
+        self.first_run = True
 
 
     def find_best_transfer_recursive(self, board, current_area, transfers_left, found_dices, needed_dices, already_in_path):
@@ -99,11 +102,13 @@ class AI:
     # nb_turns_this_game      number of turns ended so far
     # previous_time_left      time (in seconds) left after last decision making
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-        # limit the number of attacks to 2 -- just a temporary solution
-        if nb_moves_this_turn >= 2:
+        time_start = datetime.datetime.now()
+
+        # for each transfer attack once
+        if nb_moves_this_turn >= self.max_transfers:
             return EndTurnCommand()
 
-        # use every transfer, before starting a maxn algorithm if possible
+        # use every transfer, before starting a maxn/monte carlo algorithm if possible
         if not self.tranfers_todo and nb_transfers_this_turn < self.max_transfers:
             self.tranfers_todo = self.move_dices_to_border(board, self.max_transfers - nb_transfers_this_turn)
 
@@ -111,15 +116,19 @@ class AI:
             source_name, target_name = self.tranfers_todo.pop(0)
             return TransferCommand(source_name, target_name)
 
-        time_start = datetime.datetime.now()
-
         turn_type, source, target = self.maxn.calculate_best_turn(board, nb_moves_this_turn, nb_transfers_this_turn)
 
-        time_end = datetime.datetime.now()
-        time_delta = time_end - time_start
+        time_delta = datetime.datetime.now() - time_start
+        time_delta_s = time_delta.microseconds / 1000000
 
-        #print(f"Duration of evaluation: {time_delta.microseconds / 1000000}s", file=sys.stderr)
-        #print(f"Average time per node: {round((time_delta.microseconds / 1000) / self.maxn.inspected_leaf_nodes, 5)}ms", file=sys.stderr)
+        # calculate how many leaf nodes should be inspected in future run
+        if self.first_run:
+            self.time_per_leaf_node = time_delta_s / self.maxn.inspected_leaf_nodes
+            self.first_run = False
+
+        time_left -= time_delta_s
+        monte_carlo_max_leaf_nodes = (time_left*0.9 / self.time_per_leaf_node) / self.max_transfers
+        self.maxn.monte_carlo_max_leaf_nodes = min(monte_carlo_max_leaf_nodes, 5000) # for depth == 4 is 5k more than enough
 
         if turn_type == "attack":
             return BattleCommand(source.get_name(), target.get_name())
