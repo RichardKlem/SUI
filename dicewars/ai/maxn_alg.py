@@ -14,9 +14,7 @@ BORDER_FILLING_WEIGHT = 3  # number which indicates how full are border areas
 BORDERS_WEIGHT = 3  # number of border areas
 NEIGHBOURS_WEIGHT = 1  # number which indicates how well connected are regions
 
-MAXN_MAX_DEPTH = 1
-
-END_PENALTY = 0.55
+MAXN_MAX_DEPTH = 2
 
 
 class MaxN:
@@ -110,8 +108,18 @@ class MaxN:
         # player can end his turn
         # since we dont take into account a randomised addition of dice -- the board wont change
         endturn_value = self.maxn_recursive(board, depth + 1, next_player_index)
-        endturn_value = [x * END_PENALTY for x in endturn_value]
-        deeper_level_evaluation = [endturn_value]
+
+        # the more areas AI have (compared to all areas) the more it tries to attack, instead of ending the turn
+        # to force AI to attack we penalize end turn value max -10%
+        if self.player_name == self.players_order[player_index]:
+            areas_owned_ratio = len(board.get_player_areas(self.player_name)) / len(board.areas)
+
+            # start at ratio > 50%, otherwise do not penalize end turn
+            if areas_owned_ratio > 0.5:
+                for index, name in enumerate(self.players_order):
+                    endturn_value[index] *= 1 - (areas_owned_ratio*0.1)
+
+        current_level_evaluation = [endturn_value]
         moves = [("end", None, None)]
 
         for source, target in possible_attacks(board, self.players_order[player_index]):
