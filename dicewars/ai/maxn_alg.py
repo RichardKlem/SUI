@@ -5,6 +5,8 @@ from dicewars.ai.utils import possible_attacks, probability_of_successful_attack
 from dicewars.client.game.board import Board
 import numpy as np
 from copy import deepcopy
+import random
+import statistics
 
 # MUST be optimized to achieve the best performance!
 SCORE_WEIGHT = 5  # size of the biggest region
@@ -15,7 +17,7 @@ BORDERS_WEIGHT = 3  # number of border areas
 NEIGHBOURS_WEIGHT = 1  # number which indicates how well connected are regions
 
 MAXN_MAX_DEPTH = 2
-
+MONTE_CARLO_MAX_DEPTH = 4
 
 class MaxN:
 
@@ -24,6 +26,7 @@ class MaxN:
         self.player_index = players_order.index(player_name)
         self.players_order = players_order
         self.player_name = player_name
+        self.monte_carlo_max_leaf_nodes = 200
         self.all_inspected_nodes = 0
         self.all_inspected_leaf_nodes = 0
 
@@ -36,6 +39,26 @@ class MaxN:
             board_copy.areas[key] = copy.deepcopy(area)
 
         return board_copy
+
+    def forward_pruning_possible_attacks(self, board, player_name):
+        attacks_to_inspect = []
+
+        # forward pruning at depth 1 (our next turn)
+        for source, target in possible_attacks(board, player_name):
+            probability_of_success = probability_of_successful_attack(board, source.get_name(), target.get_name())
+            probability_of_holding = probability_of_holding_area(board, target.get_name(), target.get_dice(), player_name)
+            both_areas_have_8 = target.get_dice() == 8 and target.get_dice() == 8
+
+            # do not attack if:
+            #   probability of success is lower than 65% and we have less than 4 dices
+            #   probability of holding the area until next turn is lower than 30 % (2 players), 40 % (4 players), ...
+            if ((probability_of_success < 0.55 and source.get_dice() < 4) or
+                (probability_of_holding < (0.20 + len(self.players_order)*0.05) and not both_areas_have_8)):
+                continue
+            else:
+                attacks_to_inspect += [(source, target)]
+
+        return attacks_to_inspect
 
     # returns a float number which indicates how good is this node for player "player_name"
     def evaluate_current_node(self, player_name, board):
@@ -175,11 +198,79 @@ class MaxN:
         else:
             return max_value
 
+    def simulate_path_to_leaf(self, first_attack_source, first_attack_target, board):
+        end_turn = [(-1, -1)]
+
+        # make the first move (our move)
+        if first_attack_source != -1:
+            probability_of_success = probability_of_successful_attack(board, first_attack_source.get_name(), first_attack_target.get_name())
+            self.make_attack(board, first_attack_source, first_attack_target, random.random() < probability_of_success)
+
+        player_index = (self.player_index + 1) % len(self.players_order)
+
+        # start from 1 because we already did the first move
+        for depth in range(1, MONTE_CARLO_MAX_DEPTH):
+            possible_attacks = self.forward_pruning_possible_attacks(board, player_index)
+
+            # we cant attack anymore or we can only do prunned attacks
+            if not possible_attacks:
+                self.inspected_leaf_nodes += 1
+                return self.evaluate_current_node(self.player_name, board)
+
+            source, target = random.choice(possible_attacks + end_turn)
+
+            # if we pick end turn (source == -1) skip update of board
+            if source != -1:
+                probability_of_success = probability_of_successful_attack(board, source.get_name(), target.get_name())
+                # make randomly picked attack with its probability of success
+                self.make_attack(board, source, target, random.random() < probability_of_success)
+
+            player_index = (player_index + 1) % len(self.players_order)
+
+        self.inspected_leaf_nodes += 1
+        return self.evaluate_current_node(self.player_name, board)
+
+    def monte_carlo(self, board, leaves_to_inspect):
+        end_turn = [(-1, -1)]
+        moves_to_inspect = self.forward_pruning_possible_attacks(board, self.player_name) + end_turn
+
+        # calculate number of leaves to visit for each attack
+        leaves_for_each_move = round(leaves_to_inspect / len(moves_to_inspect))
+
+        moves_evaluation = [0]*len(moves_to_inspect)
+        move_index = 0
+
+        # run monte carlo
+        for source, target in moves_to_inspect:
+            # run "leaves_for_each_move" simulations and return average evaluation
+            leaves_evaluations = []
+
+            for leaf in range(0, leaves_for_each_move):
+                board_copy = self.deep_copy_board(board)
+                leaves_evaluations += [self.simulate_path_to_leaf(source, target, board_copy)]
+            moves_evaluation[move_index] = statistics.mean(leaves_evaluations)
+            move_index += 1
+
+        # again, penalize end turn if AI have more than half of the map
+        areas_owned_ratio = len(board.get_player_areas(self.player_name)) / len(board.areas)
+        if areas_owned_ratio > 0.5:
+            moves_evaluation[-1] *= 1 - (areas_owned_ratio*0.1)
+
+        max_value = max(moves_evaluation)
+        best_move_index = moves_evaluation.index(max_value)
+        best_move_src, best_move_target = moves_to_inspect[best_move_index]
+
+        if best_move_src == -1:
+            return ("end", best_move_src, best_move_target)
+        else:
+            return ("attack", best_move_src, best_move_target)
+
     def calculate_best_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn):
         self.inspected_nodes = 0
         self.inspected_leaf_nodes = 0
 
-        next_move = self.maxn_recursive(board, 0, self.player_index)
+        next_move = self.monte_carlo(board, self.monte_carlo_max_leaf_nodes)
+        #next_move = self.maxn_recursive(board, 0, self.player_index)
 
         self.all_inspected_nodes += self.inspected_nodes
         self.all_inspected_leaf_nodes += self.inspected_leaf_nodes
