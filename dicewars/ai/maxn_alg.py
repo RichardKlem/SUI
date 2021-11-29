@@ -77,7 +77,8 @@ class MaxN:
                   borders * BORDERS_WEIGHT,
                   neighbours * NEIGHBOURS_WEIGHT]
 
-        return math.sqrt(np.dot(vector, vector))
+        # use only sum of vector instead of length, because DNN can simulate this internally
+        return sum(vector)
 
     def make_attack(self, board, source, target, attack_success):
         if attack_success:
