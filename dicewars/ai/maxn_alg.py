@@ -151,29 +151,23 @@ class MaxN:
             for index, name in enumerate(self.players_order):
                 unsuccess_value[index] *= 1 - probability_of_success
 
-            # needs more experimenting to improve an evaluation of an attack
-            # e.g. min, avg, ...
-            attack_value = max(success_value, unsuccess_value)
-            deeper_level_evaluation += [attack_value]
+            # calculate an evalutation of a current node
+            node_value = [a + b for a, b in zip(success_value, unsuccess_value)]
+            current_level_evaluation += [node_value]
             moves += [("attack", source, target)]
 
-        node_value = []
-        max_value = -1
-        next_move = None
+        max_value = current_level_evaluation[0]
+        next_move = moves[0]
 
-        #print(deeper_level_evaluation, file=sys.stderr)
-        #print("", file=sys.stderr)
-
-        for index, value in enumerate(deeper_level_evaluation):
-            if value[player_index] > max_value:
-                max_value = value[player_index]
-                node_value = value
+        for index, value in enumerate(current_level_evaluation):
+            if value[player_index] > max_value[player_index]:
+                max_value = value
                 next_move = moves[index]
 
         if depth == 0:
             return next_move
         else:
-            return node_value
+            return max_value
 
     def calculate_best_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn):
         self.inspected_nodes = 0
