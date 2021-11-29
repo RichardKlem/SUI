@@ -1,12 +1,9 @@
 import copy
 import sys
-import math
-from dicewars.ai.utils import possible_attacks, probability_of_successful_attack, probability_of_holding_area
-from dicewars.client.game.board import Board
-import numpy as np
-from copy import deepcopy
 import random
 import statistics
+
+from dicewars.ai.utils import possible_attacks, probability_of_successful_attack, probability_of_holding_area
 
 # MUST be optimized to achieve the best performance!
 SCORE_WEIGHT = 5  # size of the biggest region
@@ -19,16 +16,43 @@ NEIGHBOURS_WEIGHT = 1  # number which indicates how well connected are regions
 MAXN_MAX_DEPTH = 2
 MONTE_CARLO_MAX_DEPTH = 4
 
-class MaxN:
 
+def deep_copy_board(board):
+    # just to correctly create a Board object
+    board_copy = copy.deepcopy(board)
+
+    # creates a deep copy of each Area, because the previous deepcopy couldnt reach it
+    for key, area in board.areas.items():
+        board_copy.areas[key] = copy.deepcopy(area)
+
+    return board_copy
+
+
+def make_attack(board, source, target, attack_success):
+    if attack_success:
+        # overwrite dices in target area
+        board.areas[str(target.get_name())].set_dice(source.get_dice() - 1)
+        # set dices of source to 1
+        board.areas[str(source.get_name())].set_dice(1)
+        # overwrite owner of target area
+        board.areas[str(target.get_name())].owner_name = source.get_owner_name()
+    else:
+        # if attacker have 8 dices -- defender loses 2 dices
+        #                  4-7 dices -- defender loses 1 dice
+        remove_defenders_dices = source.get_dice() // 4
+        board.areas[str(target.get_name())].set_dice(max(target.get_dice() - remove_defenders_dices, 1))
+        board.areas[str(source.get_name())].set_dice(1)
+
+
+class MaxN:
     # time_left?
     def __init__(self, player_name, players_order):
         self.player_index = players_order.index(player_name)
         self.players_order = players_order
         self.player_name = player_name
         self.monte_carlo_max_leaf_nodes = 200
-        self.all_inspected_nodes = 0
-        self.all_inspected_leaf_nodes = 0
+        self.inspected_nodes = 0
+        self.inspected_leaf_nodes = 0
 
         # weights
         self.score_weight = SCORE_WEIGHT
@@ -37,6 +61,7 @@ class MaxN:
         self.border_filling_weight = BORDER_FILLING_WEIGHT
         self.borders_weight = BORDERS_WEIGHT
         self.neighbours_weight = NEIGHBOURS_WEIGHT
+
 
     def set_weights(self, board):
         # TODO: use DNN to set weights
@@ -47,15 +72,6 @@ class MaxN:
         self.borders_weight = BORDERS_WEIGHT
         self.neighbours_weight = NEIGHBOURS_WEIGHT
 
-    def deep_copy_board(self, board):
-        # just to correctly create a Board object
-        board_copy = copy.deepcopy(board)
-
-        # creates a deep copy of each Area, because the previous deepcopy couldnt reach it
-        for key, area in board.areas.items():
-            board_copy.areas[key] = copy.deepcopy(area)
-
-        return board_copy
 
     def forward_pruning_possible_attacks(self, board, player_name):
         attacks_to_inspect = []
@@ -72,10 +88,10 @@ class MaxN:
             if ((probability_of_success < 0.55 and source.get_dice() < 4) or
                 (probability_of_holding < (0.20 + len(self.players_order)*0.05) and not both_areas_have_8)):
                 continue
-            else:
-                attacks_to_inspect += [(source, target)]
+            attacks_to_inspect += [(source, target)]
 
         return attacks_to_inspect
+
 
     # returns a float number which indicates how good is this node for player "player_name"
     def evaluate_current_node(self, player_name, board):
@@ -122,21 +138,6 @@ class MaxN:
 
         # use only sum of vector instead of length, because DNN can simulate this internally
         return sum(vector)
-
-    def make_attack(self, board, source, target, attack_success):
-        if attack_success:
-            # overwrite dices in target area
-            board.areas[str(target.get_name())].set_dice(source.get_dice() - 1)
-            # set dices of source to 1
-            board.areas[str(source.get_name())].set_dice(1)
-            # overwrite owner of target area
-            board.areas[str(target.get_name())].owner_name = source.get_owner_name()
-        else:
-            # if attacker have 8 dices -- defender loses 2 dices
-            #                  4-7 dices -- defender loses 1 dice
-            remove_defenders_dices = source.get_dice() // 4
-            board.areas[str(target.get_name())].set_dice(max(target.get_dice() - remove_defenders_dices, 1))
-            board.areas[str(source.get_name())].set_dice(1)
 
 
     def maxn_recursive(self, board, depth, player_index):
@@ -186,15 +187,15 @@ class MaxN:
             # makes a deep copy of a board
             # OPTIMIZE: it is not necessary to create a copy since it is not running in parallel,
             # just make a move and then reverse it
-            board_copy = self.deep_copy_board(board)
-            self.make_attack(board_copy, source, target, True)
+            board_copy = deep_copy_board(board)
+            make_attack(board_copy, source, target, True)
 
             success_value = self.maxn_recursive(board_copy, depth + 1, next_player_index)
             for index, name in enumerate(self.players_order):
                 success_value[index] *= probability_of_success
 
-            board_copy = self.deep_copy_board(board)
-            self.make_attack(board_copy, source, target, False)
+            board_copy = deep_copy_board(board)
+            make_attack(board_copy, source, target, False)
 
             unsuccess_value = self.maxn_recursive(board_copy, depth + 1, next_player_index)
             for index, name in enumerate(self.players_order):
@@ -218,13 +219,14 @@ class MaxN:
         else:
             return max_value
 
+
     def simulate_path_to_leaf(self, first_attack_source, first_attack_target, board):
         end_turn = [(-1, -1)]
 
         # make the first move (our move)
         if first_attack_source != -1:
             probability_of_success = probability_of_successful_attack(board, first_attack_source.get_name(), first_attack_target.get_name())
-            self.make_attack(board, first_attack_source, first_attack_target, random.random() < probability_of_success)
+            make_attack(board, first_attack_source, first_attack_target, random.random() < probability_of_success)
 
         player_index = (self.player_index + 1) % len(self.players_order)
 
@@ -243,12 +245,13 @@ class MaxN:
             if source != -1:
                 probability_of_success = probability_of_successful_attack(board, source.get_name(), target.get_name())
                 # make randomly picked attack with its probability of success
-                self.make_attack(board, source, target, random.random() < probability_of_success)
+                make_attack(board, source, target, random.random() < probability_of_success)
 
             player_index = (player_index + 1) % len(self.players_order)
 
         self.inspected_leaf_nodes += 1
         return self.evaluate_current_node(self.player_name, board)
+
 
     def monte_carlo(self, board, leaves_to_inspect):
         end_turn = [(-1, -1)]
@@ -266,7 +269,7 @@ class MaxN:
             leaves_evaluations = []
 
             for leaf in range(0, leaves_for_each_move):
-                board_copy = self.deep_copy_board(board)
+                board_copy = deep_copy_board(board)
                 leaves_evaluations += [self.simulate_path_to_leaf(source, target, board_copy)]
             moves_evaluation[move_index] = statistics.mean(leaves_evaluations)
             move_index += 1
@@ -285,14 +288,10 @@ class MaxN:
         else:
             return ("attack", best_move_src, best_move_target)
 
-    def calculate_best_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn):
+
+    def calculate_best_turn(self, board):
         self.inspected_nodes = 0
         self.inspected_leaf_nodes = 0
 
-        next_move = self.monte_carlo(board, self.monte_carlo_max_leaf_nodes)
-        #next_move = self.maxn_recursive(board, 0, self.player_index)
-
-        self.all_inspected_nodes += self.inspected_nodes
-        self.all_inspected_leaf_nodes += self.inspected_leaf_nodes
-
-        return next_move
+        #self.maxn_recursive(board, 0, self.player_index)
+        return self.monte_carlo(board, self.monte_carlo_max_leaf_nodes)

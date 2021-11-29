@@ -1,11 +1,7 @@
-import random
-import logging
 import sys
 import datetime
 import statistics
-import time
 
-from dicewars.ai.utils import possible_attacks
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.ai.maxn_alg import MaxN
 
@@ -43,15 +39,15 @@ class AI:
                 if (found_dices + neighbour.get_dice() - 1) >= needed_dices or transfers_left == 1:
                     # returns run_out_of_tranfers, found_dices, [(source, target)]
                     return transfers_left - 1, found_dices + neighbour.get_dice() - 1, [(neighbour.get_name(), current_area.get_name())]
-                else:
-                    path_transfers_left, path_found_dices, path  = self.find_best_transfer_recursive(board, neighbour, transfers_left-1, found_dices + neighbour.get_dice() - 1, needed_dices, already_in_path + [neighbour_name])
 
-                    # check if this path was the best yet
-                    if (path_transfers_left > max_transfers_left or
-                        (path_transfers_left == max_transfers_left and path_found_dices > max_found_dices)):
-                        best_path = path + [(neighbour.get_name(), current_area.get_name())]
-                        max_found_dices = path_found_dices
-                        max_transfers_left = path_transfers_left
+                path_transfers_left, path_found_dices, path  = self.find_best_transfer_recursive(board, neighbour, transfers_left-1, found_dices + neighbour.get_dice() - 1, needed_dices, already_in_path + [neighbour_name])
+
+                # check if this path was the best yet
+                if (path_transfers_left > max_transfers_left or
+                    (path_transfers_left == max_transfers_left and path_found_dices > max_found_dices)):
+                    best_path = path + [(neighbour.get_name(), current_area.get_name())]
+                    max_found_dices = path_found_dices
+                    max_transfers_left = path_transfers_left
 
         return (max_transfers_left, max_found_dices, best_path)
 
@@ -119,7 +115,7 @@ class AI:
             source_name, target_name = self.tranfers_todo.pop(0)
             return TransferCommand(source_name, target_name)
 
-        turn_type, source, target = self.maxn.calculate_best_turn(board, nb_moves_this_turn, nb_transfers_this_turn)
+        turn_type, source, target = self.maxn.calculate_best_turn(board)
 
         time_delta = datetime.datetime.now() - time_start
         time_delta_s = time_delta.microseconds / 1000000
