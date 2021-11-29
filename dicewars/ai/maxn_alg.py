@@ -31,7 +31,7 @@ class MaxN:
         # just to correctly create a Board object
         board_copy = copy.deepcopy(board)
 
-        # creates a deep copy od each Area, because the previous deepcopy couldnt reach it
+        # creates a deep copy of each Area, because the previous deepcopy couldnt reach it
         for key, area in board.areas.items():
             board_copy.areas[key] = copy.deepcopy(area)
 
@@ -104,7 +104,7 @@ class MaxN:
             node_value = [0] * len(self.players_order)
 
             for index, name in enumerate(self.players_order):
-                node_value[index] = self.evaluate_current_node(self.players_order[player_index], board)
+                node_value[index] = self.evaluate_current_node(self.players_order[index], board)
             return node_value
 
         next_player_index = (player_index + 1) % len(self.players_order)
@@ -138,15 +138,20 @@ class MaxN:
             if ((probability_of_success < 0.55 and source.get_dice() < 4) or
                 (probability_of_holding < (0.20 + len(self.players_order)*0.05) and not both_areas_have_8)):
                 continue
+
             # makes a deep copy of a board
+            # OPTIMIZE: it is not necessary to create a copy since it is not running in parallel,
+            # just make a move and then reverse it
             board_copy = self.deep_copy_board(board)
             self.make_attack(board_copy, source, target, True)
+
             success_value = self.maxn_recursive(board_copy, depth + 1, next_player_index)
             for index, name in enumerate(self.players_order):
                 success_value[index] *= probability_of_success
 
             board_copy = self.deep_copy_board(board)
             self.make_attack(board_copy, source, target, False)
+
             unsuccess_value = self.maxn_recursive(board_copy, depth + 1, next_player_index)
             for index, name in enumerate(self.players_order):
                 unsuccess_value[index] *= 1 - probability_of_success
@@ -172,6 +177,7 @@ class MaxN:
     def calculate_best_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn):
         self.inspected_nodes = 0
         self.inspected_leaf_nodes = 0
+
         next_move = self.maxn_recursive(board, 0, self.player_index)
 
         self.all_inspected_nodes += self.inspected_nodes
