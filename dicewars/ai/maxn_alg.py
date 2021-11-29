@@ -56,8 +56,12 @@ class MaxN:
                     possible_transfers_num += 1
 
         # we really dont want to get to node where we lost
-        if len(player_areas) == 0 or border_areas_num == 0:
-            return -1
+        if len(player_areas) == 0:
+            return 0
+
+        # but we really want to get to node where we won
+        if len(player_areas) == len(board.areas):
+            return sys.maxsize
 
         score = len(max(all_regions, key=len)) / len(board.areas)
         regions = 1 - (len(all_regions) / len(player_areas))
