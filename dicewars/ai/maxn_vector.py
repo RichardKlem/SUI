@@ -90,8 +90,11 @@ class AI:
                 weakest_border_area = border_area
                 weakest_border_value = current_border_value
 
+        if weakest_border_area == None:
+            return []
+
         # limit transfers to 3 per weakest border area
-        max_transfers_left, max_found_dices, best_path = self.find_best_transfer_recursive(board, weakest_border_area, min(transfers_left, 3), 0, 8 - weakest_border_area.get_dice(), [border_area.get_name()])
+        max_transfers_left, max_found_dices, best_path = self.find_best_transfer_recursive(board, weakest_border_area, min(transfers_left, 3), 0, 8 - weakest_border_area.get_dice(), [weakest_border_area.get_name()])
 
         return best_path
 
