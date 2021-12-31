@@ -92,9 +92,9 @@ class DGGraphNet(torch.nn.Module):
 
         # push board through
         # GCN
-        conv1 = torch.nn.functional.relu(self.gcn(main, adj1)).reshape(-1)
-        conv2 = torch.nn.functional.relu(self.gcn(main, adj2)).reshape(-1)
-        conv3 = torch.nn.functional.relu(self.gcn(main, adj3)).reshape(-1)
+        conv1 = torch.nn.functional.relu(self.gcn1(main, adj1)).reshape(-1)
+        conv2 = torch.nn.functional.relu(self.gcn2(main, adj2)).reshape(-1)
+        conv3 = torch.nn.functional.relu(self.gcn3(main, adj3)).reshape(-1)
 
         conv = torch.cat([conv1, conv2, conv3])
 
