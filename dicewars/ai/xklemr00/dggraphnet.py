@@ -58,11 +58,13 @@ class DGGraphNet(torch.nn.Module):
         # features -> FC -> concat -> FC -> out
 
         # two channels for GCN
-        self.gcn = DGGraphConv(mat_size, hid_size)
+        self.gcn1 = DGGraphConv(mat_size, hid_size)
+        self.gcn2 = DGGraphConv(mat_size, hid_size)
+        self.gcn3 = DGGraphConv(mat_size, hid_size)
 
 
         # fully connected post GCN
-        self.fc1 = torch.nn.Linear(mat_size*hid_size, hid_size)
+        self.fc1 = torch.nn.Linear(3*mat_size*hid_size, hid_size)
 
         # fully connected features
         self.fc2 = torch.nn.Linear(par_size, par_size)
@@ -79,16 +81,22 @@ class DGGraphNet(torch.nn.Module):
         
         # split input into board and global features
         # matrices
-        board = input[:-self.par_size].reshape(2, self.mat_size, self.mat_size)
-        own = board[0]
-        opp = board[1]
+        board = input[:-self.par_size].reshape(4, self.mat_size, self.mat_size)
+        main = board[0]
+        adj1 = board[1]
+        adj2 = board[2]
+        adj3 = board[3]
 
         # features
         feat = input[-self.par_size:]
 
         # push board through
         # GCN
-        conv = torch.nn.functional.relu(self.gcn(own, opp)).reshape(-1)
+        conv1 = torch.nn.functional.relu(self.gcn(main, adj1)).reshape(-1)
+        conv2 = torch.nn.functional.relu(self.gcn(main, adj2)).reshape(-1)
+        conv3 = torch.nn.functional.relu(self.gcn(main, adj3)).reshape(-1)
+
+        conv = torch.cat([conv1, conv2, conv3])
 
         # FC
         conv_fc = torch.nn.functional.relu(self.fc1(conv))
@@ -118,7 +126,7 @@ class DGGraphNet(torch.nn.Module):
 
 def build_nn_input(board: Board, player_name: int):
 
-    boardOut = torch.zeros((2,34,34))
+    boardOut = torch.zeros((4,34,34))
     
 
     # input format
@@ -131,40 +139,28 @@ def build_nn_input(board: Board, player_name: int):
     # - area count, largest area, army strength -> per player
 
     # all areas are relevant:
-    for player in range(1,3):
-        for pArea in board.get_player_areas(player):
-            n = pArea.name
-
-            if player == player_name:
-                # 1) put area strength into ch1 diagonal
-                # 2) add own adjacencies into ch1
-                # 3) add adjacencies with opponent into ch2
-                boardOut[0][n][n] = 1 + pArea.dice
-                for surrAreaN in pArea.get_adjacent_areas_names():
-                    if (surrAreaN > n): continue
-                    # if adjacent area also belongs to player, add it to channel 1
-                    surrArea = board.get_area(surrAreaN)
-                    adjOwner = surrArea.get_owner_name()
-                    if (adjOwner == player_name):
-                        boardOut[0][n][surrAreaN] = 1
-                    else:
-                        boardOut[1][n][surrAreaN] = probability_of_successful_attack(board, n, surrAreaN)
+    # only player areas are relevant:
+    for pArea in board.get_player_areas(player_name):
+        n = pArea.name
+        # set diagonal to 1 + strength
+        boardOut[0][n][n] = 1 + pArea.dice
+        # find connected areas
+        for surrAreaN in pArea.get_adjacent_areas_names():
+            # if adjacent area also belongs to player, add it to channel 1
+            surrArea = board.get_area(surrAreaN)
+            adjOwner = surrArea.get_owner_name()
+            if (adjOwner == player_name):
+                boardOut[0][n][surrAreaN] = 1
             else:
-                # 1) put strength onto diagonal
-                # 2) add adjacencies with opponent into ch2
-                boardOut[1][n][n] = 1 + pArea.dice
-                for surrAreaN in pArea.get_adjacent_areas_names():
-                    if (surrAreaN > n): continue
-                    surrArea = board.get_area(surrAreaN)
-                    adjOwner = surrArea.get_owner_name()
-                    if (adjOwner == player_name):
-                        boardOut[1][surrAreaN][n] = probability_of_successful_attack(board, surrAreaN, n)
+                m = (adjOwner + 4 - player_name) % 4
+                boardOut[m+1][n][surrAreaN] = probability_of_successful_attack(
+                    board, n, surrAreaN)
 
     # global parameters:
-    paramOut = torch.zeros(6)
+    paramOut = torch.zeros(12)
     
-    j = 3
-    for player in range(1, 3):
+    for player in range(1, 5):
+        playerOrd = (player + 4 - player_name) % 4
         # gets player's areas count
         areaCount = len(board.get_player_areas(player))
         # gets player's dice count
@@ -178,17 +174,9 @@ def build_nn_input(board: Board, player_name: int):
                 largestArea = len(region)
         
         # assigns the values of our AI to the first three positions of the matrix
-        if player == player_name:
-            paramOut[0] = areaCount
-            paramOut[1] = armyStrength
-            paramOut[2] = largestArea
-        else:
-            paramOut[j] = areaCount
-            j = j + 1
-            paramOut[j] = armyStrength
-            j = j + 1
-            paramOut[j] = largestArea
-            j = j + 1
+        paramOut[playerOrd + 0] = areaCount
+        paramOut[playerOrd + 1] = armyStrength
+        paramOut[playerOrd + 2] = largestArea
     
     return torch.cat([boardOut.reshape(-1), paramOut])
 
