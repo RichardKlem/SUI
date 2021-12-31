@@ -116,6 +116,15 @@ class DGGraphNet(torch.nn.Module):
         return torch.exp(out)
 
 
+    # save model parameters into file between instances
+    def save(self, pathname):
+        torch.save(self.state_dict(), pathname)
+
+    # load parameters into model afer initiaization
+    def load(self, pathname):
+        self.load_state_dict(torch.load(pathname))
+
+
 def build_nn_input(board: Board, player_name: int):
 
     boardOut = torch.zeros((4,34,34))
@@ -157,9 +166,6 @@ def build_nn_input(board: Board, player_name: int):
     paramOut = torch.zeros(12)
 
     return torch.cat([x.reshape(-1), paramOut])
-
-
-
 
     
 
