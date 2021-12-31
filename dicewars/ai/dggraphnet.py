@@ -10,7 +10,7 @@ import math
 # the PyCGN implementation, available at https://github.com/tkipf/pygcn 
 
 class DGGraphConv(torch.nn.Module):
-    ...
+    
     def __init__(self, in_size, out_size) -> None:
         super().__init__()
         self.in_size  = in_size
@@ -35,13 +35,12 @@ class DGGraphConv(torch.nn.Module):
 
 
 class DGGraphNet(torch.nn.Module):
-    ...
 
     def __init__(self, in_size, mat_size, par_size, hid_size, out_size
        ) -> None:
-        # in_size:          total size of input vector (4*34*34+12)
+        # in_size:          total size of input vector (2*34*34+12)
         # mat_size:         side of board matrix (34)
-        # par_size:         size of parameters vector (12)
+        # par_size:         size of parameters vector (6)
         # hid_size:         size of hidden layer vector (varies)
         # out_size:         output size (6)
 
@@ -58,13 +57,12 @@ class DGGraphNet(torch.nn.Module):
         #                     V
         # features -> FC -> concat -> FC -> out
 
-        # three channels for GCN
-        self.gcn1 = DGGraphConv(mat_size, hid_size)
-        self.gcn2 = DGGraphConv(mat_size, hid_size)
-        self.gcn3 = DGGraphConv(mat_size, hid_size)
+        # two channels for GCN
+        self.gcn_own = DGGraphConv(mat_size, hid_size)
+        self.gcn_opp = DGGraphConv(mat_size, hid_size)
 
         # fully connected post GCN
-        self.fc1 = torch.nn.Linear(3*mat_size*hid_size, hid_size)
+        self.fc1 = torch.nn.Linear(2*mat_size*hid_size, hid_size)
 
         # fully connected features
         self.fc2 = torch.nn.Linear(par_size, par_size)
@@ -81,11 +79,9 @@ class DGGraphNet(torch.nn.Module):
         
         # split input into board and global features
         # matrices
-        board = input[:-self.par_size].reshape(4, self.mat_size, self.mat_size)
+        board = input[:-self.par_size].reshape(2, self.mat_size, self.mat_size)
         main = board[0]
         adj1 = board[1]
-        adj2 = board[2]
-        adj3 = board[3]
 
         # features
         feat = input[-self.par_size:]
@@ -110,10 +106,10 @@ class DGGraphNet(torch.nn.Module):
         conv_feat = torch.cat([conv_fc, feat_fc])
 
         # push through FC
-        out = self.sm(self.fc3(conv_feat))
+        out = self.fc3(conv_feat)
 
         # return output
-        return torch.exp(out)
+        return out
 
 
     # save model parameters into file between instances
