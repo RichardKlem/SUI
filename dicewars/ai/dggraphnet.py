@@ -164,7 +164,34 @@ def build_nn_input(board: Board, player_name: int):
     # global parameters:
     # TODO: get parameters
     paramOut = torch.zeros(12)
-
+    
+    j = 3
+    for player in range(1, 5):
+        # gets player's areas count
+        areaCount = len(board.get_player_areas(player))
+        # gets player's dice count
+        armyStrength = board.get_player_dice(player)
+        
+        # gets player largest region
+        playerRegions = board.get_players_regions(player)
+        largestArea = 0
+        for region in playerRegions:
+            if len(region) > largestArea:
+                largestArea = len(region)
+        
+        # assigns the values of our AI to the first three positions of the matrix
+        if player == player_name:
+            paramOut[0] = areaCount
+            paramOut[1] = armyStrength
+            paramOut[2] = largestArea
+        else:
+            paramOut[j] = areaCount
+            j = j + 1
+            paramOut[j] = armyStrength
+            j = j + 1
+            paramOut[j] = largestArea
+            j = j + 1
+    
     return torch.cat([x.reshape(-1), paramOut])
 
     
