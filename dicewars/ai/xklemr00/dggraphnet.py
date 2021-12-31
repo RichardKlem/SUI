@@ -58,8 +58,8 @@ class DGGraphNet(torch.nn.Module):
         # features -> FC -> concat -> FC -> out
 
         # two channels for GCN
-        self.gcn_own = DGGraphConv(mat_size, hid_size)
-        self.gcn_opp = DGGraphConv(mat_size, hid_size)
+        self.gcn = DGGraphConv(mat_size, mat_size)
+
 
         # fully connected post GCN
         self.fc1 = torch.nn.Linear(2*mat_size*hid_size, hid_size)
@@ -80,20 +80,15 @@ class DGGraphNet(torch.nn.Module):
         # split input into board and global features
         # matrices
         board = input[:-self.par_size].reshape(2, self.mat_size, self.mat_size)
-        main = board[0]
-        adj1 = board[1]
+        own = board[0]
+        opp = board[1]
 
         # features
         feat = input[-self.par_size:]
 
         # push board through
         # GCN
-        conv1 = torch.nn.functional.relu(self.gcn1(main, adj1))
-        conv2 = torch.nn.functional.relu(self.gcn2(main, adj2))
-        conv3 = torch.nn.functional.relu(self.gcn3(main, adj3))
-
-        conv = torch.cat([conv1, conv2, conv3]).reshape(-1)
-
+        conv = torch.nn.functional.relu(self.gcn(own, opp)).reshape(-1)
 
         # FC
         conv_fc = torch.nn.functional.relu(self.fc1(conv))
@@ -123,7 +118,7 @@ class DGGraphNet(torch.nn.Module):
 
 def build_nn_input(board: Board, player_name: int):
 
-    boardOut = torch.zeros((4,34,34))
+    boardOut = torch.zeros((2,34,34))
     
 
     # input format
@@ -135,34 +130,41 @@ def build_nn_input(board: Board, player_name: int):
     # global parameters:
     # - area count, largest area, army strength -> per player
 
-    # only player areas are relevant:
-    for pArea in board.get_player_areas(player_name):
-        n = pArea.name
+    # all areas are relevant:
+    for player in range(1,3):
+        for pArea in board.get_player_areas(player):
+            n = pArea.name
 
-        # set diagonal to 1 + strength
-        x[0][n][n] = 1 + pArea.dice
-
-        # find connected areas
-        for surrAreaN in pArea.get_adjacent_areas_names():
-
-
-            # if adjacent area also belongs to player, add it to channel 1
-            surrArea = board.get_area(surrAreaN)
-            adjOwner = surrArea.get_owner_name()
-            if (adjOwner == player_name):
-                x[0][n][surrAreaN] = 1
-
+            if player == player_name:
+                # 1) put area strength into ch1 diagonal
+                # 2) add own adjacencies into ch1
+                # 3) add adjacencies with opponent into ch2
+                boardOut[0][n][n] = 1 + pArea.dice
+                for surrAreaN in pArea.get_adjacent_areas_names():
+                    if (surrAreaN > n): continue
+                    # if adjacent area also belongs to player, add it to channel 1
+                    surrArea = board.get_area(surrAreaN)
+                    adjOwner = surrArea.get_owner_name()
+                    if (adjOwner == player_name):
+                        boardOut[0][n][surrAreaN] = 1
+                    else:
+                        boardOut[1][n][surrAreaN] = probability_of_successful_attack(board, n, surrAreaN)
             else:
-                m = (adjOwner + 4 - player_name) % 4
-                x[m+1][n][surrAreaN] = probability_of_successful_attack(board, pArea, surrArea)
-
+                # 1) put strength onto diagonal
+                # 2) add adjacencies with opponent into ch2
+                boardOut[1][n][n] = 1 + pArea.dice
+                for surrAreaN in pArea.get_adjacent_areas_names():
+                    if (surrAreaN > n): continue
+                    surrArea = board.get_area(surrAreaN)
+                    adjOwner = surrArea.get_owner_name()
+                    if (adjOwner == player_name):
+                        boardOut[1][surrAreaN][n] = probability_of_successful_attack(board, surrAreaN, n)
 
     # global parameters:
-    # TODO: get parameters
-    paramOut = torch.zeros(12)
+    paramOut = torch.zeros(6)
     
     j = 3
-    for player in range(1, 5):
+    for player in range(1, 3):
         # gets player's areas count
         areaCount = len(board.get_player_areas(player))
         # gets player's dice count
