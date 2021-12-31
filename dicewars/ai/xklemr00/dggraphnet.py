@@ -58,11 +58,11 @@ class DGGraphNet(torch.nn.Module):
         # features -> FC -> concat -> FC -> out
 
         # two channels for GCN
-        self.gcn = DGGraphConv(mat_size, mat_size)
+        self.gcn = DGGraphConv(mat_size, hid_size)
 
 
         # fully connected post GCN
-        self.fc1 = torch.nn.Linear(2*mat_size*hid_size, hid_size)
+        self.fc1 = torch.nn.Linear(mat_size*hid_size, hid_size)
 
         # fully connected features
         self.fc2 = torch.nn.Linear(par_size, par_size)
@@ -104,7 +104,7 @@ class DGGraphNet(torch.nn.Module):
         out = self.fc3(conv_feat)
 
         # return output
-        return out
+        return torch.exp(self.sm(out))
 
 
     # save model parameters into file between instances
@@ -190,7 +190,7 @@ def build_nn_input(board: Board, player_name: int):
             paramOut[j] = largestArea
             j = j + 1
     
-    return torch.cat([x.reshape(-1), paramOut])
+    return torch.cat([boardOut.reshape(-1), paramOut])
 
     
 
@@ -198,5 +198,4 @@ def build_nn_input(board: Board, player_name: int):
 
         
 if __name__=="__main__":
-    x = torch.zeros((2,3,3))
     exit(0)
