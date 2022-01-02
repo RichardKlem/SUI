@@ -159,7 +159,7 @@ def build_nn_input(board: Board, player_name: int):
                 boardOut[0][n-1][surrAreaN-1] = 1
             else:
                 m = (adjOwner + 4 - player_name) % 4
-                boardOut[m][n-1][surrAreaN-1] = surrArea.get_dice()
+                boardOut[m][n-1][surrAreaN-1] = 1 + surrArea.get_dice()
 
     # global parameters:
     paramOut = torch.zeros(12)
@@ -182,8 +182,10 @@ def build_nn_input(board: Board, player_name: int):
         paramOut[playerOrd + 0] = areaCount
         paramOut[playerOrd + 1] = armyStrength
         paramOut[playerOrd + 2] = largestArea
+
+    output = torch.cat([boardOut.reshape(-1), paramOut])
     
-    return torch.cat([boardOut.reshape(-1), paramOut])
+    return output
 
     
 

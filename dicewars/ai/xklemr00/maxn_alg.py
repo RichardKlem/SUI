@@ -7,7 +7,7 @@ from dicewars.ai.utils import possible_attacks, probability_of_successful_attack
 
 # NN elements
 import dicewars.ai.xklemr00.dggraphnet
-TRAINING = False
+TRAINING = True
 
 # MUST be optimized to achieve the best performance!
 SCORE_WEIGHT = 5  # size of the biggest region
@@ -61,6 +61,7 @@ class MaxN:
 
         # NN
         self.model = model
+        self.cooldown = False
 
         # training
         self.records = []
@@ -76,19 +77,24 @@ class MaxN:
 
     def set_weights(self, board):
 
+        if self.cooldown: return
+
         input = dicewars.ai.xklemr00.dggraphnet.build_nn_input(board, self.player_name)
 
         # no need to keep gradient
         output = self.model.forward_cutoff(input).numpy()
 
-        self.score_weight = SCORE_WEIGHT                         * output[0]
-        self.regions_weight = REGIONS_WEIGHT                     * output[1]
-        self.areas_weight = AREAS_WEIGHT                         * output[2]
-        self.border_filling_weight = BORDER_FILLING_WEIGHT       * output[3]
-        self.borders_weight = BORDERS_WEIGHT                     * output[4]
-        self.neighbours_weight = NEIGHBOURS_WEIGHT               * output[5]
+        self.score_weight = SCORE_WEIGHT                        # * output[0]
+        self.regions_weight = REGIONS_WEIGHT                    # * output[1]
+        self.areas_weight = AREAS_WEIGHT                        # * output[2]
+        self.border_filling_weight = BORDER_FILLING_WEIGHT      # * output[3]
+        self.borders_weight = BORDERS_WEIGHT                    # * output[4]
+        self.neighbours_weight = NEIGHBOURS_WEIGHT              # * output[5]
+
+        self.cooldown=True
 
         if TRAINING:
+            ...
             self.records.append((input, output))
 
 

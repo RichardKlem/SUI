@@ -9,7 +9,7 @@ from dicewars.ai.xklemr00.maxn_alg import MaxN
 import dicewars.ai.xklemr00.dggraphnet
 MODEL_PATHNAME = "dicewars/ai/xklemr00/model.pth"
 
-TRAINING = False
+TRAINING = True
 
 class AI:
 
@@ -170,4 +170,7 @@ class AI:
                         ]
                     )
 
+                self.maxn.records = []
+
+            self.maxn.cooldown = False
             return EndTurnCommand()
