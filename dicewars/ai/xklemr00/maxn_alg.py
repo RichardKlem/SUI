@@ -5,6 +5,10 @@ import statistics
 
 from dicewars.ai.utils import possible_attacks, probability_of_successful_attack, probability_of_holding_area
 
+# NN elements
+import dicewars.ai.xklemr00.dggraphnet
+TRAINING = False
+
 # MUST be optimized to achieve the best performance!
 SCORE_WEIGHT = 5  # size of the biggest region
 REGIONS_WEIGHT = 10  # number of regions
@@ -46,13 +50,20 @@ def make_attack(board, source, target, attack_success):
 
 class MaxN:
     # time_left?
-    def __init__(self, player_name, players_order):
+    # add instance of NN model
+    def __init__(self, player_name, players_order, model):
         self.player_index = players_order.index(player_name)
         self.players_order = players_order
         self.player_name = player_name
         self.monte_carlo_max_leaf_nodes = 200
         self.inspected_nodes = 0
         self.inspected_leaf_nodes = 0
+
+        # NN
+        self.model = model
+
+        # training
+        self.records = []
 
         # weights
         self.score_weight = SCORE_WEIGHT
@@ -64,13 +75,21 @@ class MaxN:
 
 
     def set_weights(self, board):
-        # TODO: use DNN to set weights
-        self.score_weight = SCORE_WEIGHT
-        self.regions_weight = REGIONS_WEIGHT
-        self.areas_weight = AREAS_WEIGHT
-        self.border_filling_weight = BORDER_FILLING_WEIGHT
-        self.borders_weight = BORDERS_WEIGHT
-        self.neighbours_weight = NEIGHBOURS_WEIGHT
+
+        input = dicewars.ai.xklemr00.dggraphnet.build_nn_input(board, self.player_name)
+
+        # no need to keep gradient
+        output = self.model.forward_cutoff(input).numpy()
+
+        self.score_weight = SCORE_WEIGHT                         * output[0]
+        self.regions_weight = REGIONS_WEIGHT                     * output[1]
+        self.areas_weight = AREAS_WEIGHT                         * output[2]
+        self.border_filling_weight = BORDER_FILLING_WEIGHT       * output[3]
+        self.borders_weight = BORDERS_WEIGHT                     * output[4]
+        self.neighbours_weight = NEIGHBOURS_WEIGHT               * output[5]
+
+        if TRAINING:
+            self.records.append((input, output))
 
 
     def forward_pruning_possible_attacks(self, board, player_name):

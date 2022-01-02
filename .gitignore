@@ -130,3 +130,6 @@ dmypy.json
 
 # Custom
 .idea/
+xdrabe09_test.ipynb
+is-it-ok.sh
+logs/

@@ -6,6 +6,9 @@ import signal
 
 from .timers import FischerTimer, FixedTimer
 
+import pickle
+TRAINING = True
+
 
 class TimeoutError(Exception):
     pass
@@ -92,6 +95,9 @@ class AIDriver:
             message = game.input_queue.get(block=True, timeout=None)
             try:
                 if not self.handle_server_message(message):
+                    if(TRAINING and hasattr(self.ai, "records")):
+                        with open("game_records.pkl", "wb") as f:
+                            pickle.dump(self.ai.records, f)
                     exit(0)
             except JSONDecodeError:
                 self.logger.error("Invalid message from server.")
