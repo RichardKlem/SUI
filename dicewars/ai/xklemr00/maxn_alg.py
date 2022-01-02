@@ -82,14 +82,14 @@ class MaxN:
         input = dicewars.ai.xklemr00.dggraphnet.build_nn_input(board, self.player_name)
 
         # no need to keep gradient
-        output = self.model.forward_cutoff(input).numpy()
+        output = self.model.forward_cutoff(input).numpy()*6
 
-        self.score_weight = SCORE_WEIGHT                        # * output[0]
-        self.regions_weight = REGIONS_WEIGHT                    # * output[1]
-        self.areas_weight = AREAS_WEIGHT                        # * output[2]
-        self.border_filling_weight = BORDER_FILLING_WEIGHT      # * output[3]
-        self.borders_weight = BORDERS_WEIGHT                    # * output[4]
-        self.neighbours_weight = NEIGHBOURS_WEIGHT              # * output[5]
+        self.score_weight = SCORE_WEIGHT                        * output[0]
+        self.regions_weight = REGIONS_WEIGHT                    * output[1]
+        self.areas_weight = AREAS_WEIGHT                        * output[2]
+        self.border_filling_weight = BORDER_FILLING_WEIGHT      * output[3]
+        self.borders_weight = BORDERS_WEIGHT                    * output[4]
+        self.neighbours_weight = NEIGHBOURS_WEIGHT              * output[5]
 
         self.cooldown=True
 

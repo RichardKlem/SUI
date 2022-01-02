@@ -1,11 +1,11 @@
 # must be run from the SUI directory
 
-from random import random
+from random import random, shuffle
 from math import floor
 
-import os, pickle, torch
+import os, pickle, torch, copy
 
-NGAMES = 1
+NGAMES = 10
 
 import dicewars.ai.xklemr00.dggraphnet
 
@@ -28,16 +28,18 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
 for i in range(NGAMES):
 
     # select random opponents
-    opp1 = opponents[floor(random()*len(opponents))]
-    opp2 = opponents[floor(random()*len(opponents))]
-    opp3 = opponents[floor(random()*len(opponents))]
+    shuffle(opponents)
+    opp1 = opponents[0]
+    opp2 = opponents[1]
+    opp3 = opponents[2]
 
     # run the game
-    command = "python3 ./scripts/dicewars-ai-only.py -r -b 11 -o 22 -s 33 -c 44 -n 1 -l ../logs --ai " + \
+    command = "python3 ./scripts/dicewars-ai-only.py -r -n 1 -l ../logs --ai " + \
         opp1 + " " + \
         opp2 + " " + \
         opp3 + " xklemr00"
     os.system(command)
+    print("Battles complete!")
 
     # evaluate the results
     with open("game_records.pkl", "rb") as f:
@@ -65,18 +67,15 @@ for i in range(NGAMES):
             currTurn = line1[2]
             refTurn = line2[2]
 
-            print(currTurn, refTurn)
 
             # too early to evaluate
             if refTurn < 2: 
                 i2 += 1
-                print("i2 increment:", i2)
                 continue
 
             # increment to make turn gap
             if refTurn - 2 < currTurn:
                 i2 += 1
-                print("i2 increment:", i2)
                 # too late to evaluate
                 if i2 >= len(results):
                     break
@@ -88,7 +87,6 @@ for i in range(NGAMES):
             if refDice > currDice:
                 # you're doing great!
                 i1 += 1
-                print("i1 increment:", i1)
                 continue
 
             # time to train
@@ -97,17 +95,19 @@ for i in range(NGAMES):
             outputs.append(result)
 
             i1 += 1
-            print("i1 increment:", i1)
 
+        print("Turns to evaluate:", len(outputs))
 
-        for output in outputs:
-            print(output)
+        for out in outputs:
+            output = copy.copy(out)
             expected = (1.0-output)/5.0
             loss = criterion(output, expected) + 1000**-(700*(output-1/6)**2).sum()
 
             optimizer.zero_grad()
             loss.backward()
-            optimizer.step() 
+            optimizer.step()
+
+        model.save("dicewars/ai/xklemr00/model.pth")
 
         
 
