@@ -14,7 +14,6 @@ from dicewars.client.ai_driver import AIDriver
 
 from utils import get_logging_level, get_nickname
 
-
 def get_ai_constructor(ai_specification):
     ai_module = importlib.import_module('dicewars.ai.{}'.format(ai_specification))
 

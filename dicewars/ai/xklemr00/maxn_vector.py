@@ -5,6 +5,11 @@ import statistics
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.ai.xklemr00.maxn_alg import MaxN
 
+# NN stuff
+import dicewars.ai.xklemr00.dggraphnet
+MODEL_PATHNAME = "dicewars/ai/xklemr00/model.pth"
+
+TRAINING = True
 
 class AI:
 
@@ -13,15 +18,28 @@ class AI:
     # players_order   in what order do players take turns
     # max_transfers   number of transfers allowed in a single turn
     def __init__(self, player_name, board, players_order, max_transfers):
+        # initialize model
+        self.nn_model = dicewars.ai.xklemr00.dggraphnet.DGGraphNet(
+            4*34*34+12,
+            34,
+            12,
+            12,
+            6)
+        # self.nn_model.load(MODEL_PATHNAME)
+
         self.player_name = player_name
         self.players_order = players_order
-        #print(players_order)
-        self.maxn = MaxN(player_name, players_order)
+        self.maxn = MaxN(player_name, players_order, self.nn_model)
         self.tranfers_todo = []
         self.max_transfers = max_transfers
         self.fisher_increment = 0.25
         self.time_per_leaf_node = 1 # in seconds
         self.first_run = True
+
+
+        # make records for training
+        self.turn_counter = 0
+        self.records = []
 
 
     def find_best_transfer_recursive(self, board, current_area, transfers_left, found_dices, needed_dices, already_in_path):
@@ -135,4 +153,24 @@ class AI:
         elif turn_type == "transfer":
             return TransferCommand(source.get_name(), target.get_name())
         else:  # turn_type == "end"
+
+            # propagate NN inputs and outputs
+            if TRAINING:
+
+                self.turn_counter += 1
+
+                for item in self.maxn.records:
+                    self.records.append(
+                        [
+                            item[0],                # NN input
+                            item[1],                # NN output
+                            self.turn_counter,      # turn counter for referecnce
+                            board.get_player_dice(self.player_name),
+                                                    # dice metric to evaluate                           
+                        ]
+                    )
+
+                self.maxn.records = []
+
+            self.maxn.cooldown = False
             return EndTurnCommand()

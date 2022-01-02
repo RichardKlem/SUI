@@ -123,11 +123,17 @@ class DGGraphNet(torch.nn.Module):
     def load(self, pathname):
         self.load_state_dict(torch.load(pathname))
 
+    # forward but cutoff grad of input
+    def forward_cutoff(self, input):
+        return self.forward(input).detach()
+
+
+
 
 def build_nn_input(board: Board, player_name: int):
 
     boardOut = torch.zeros((4,34,34))
-    
+
 
     # input format
     # 34x34 matrices + global parameters
@@ -143,18 +149,17 @@ def build_nn_input(board: Board, player_name: int):
     for pArea in board.get_player_areas(player_name):
         n = pArea.name
         # set diagonal to 1 + strength
-        boardOut[0][n][n] = 1 + pArea.dice
+        boardOut[0][n-1][n-1] = 1 + pArea.dice
         # find connected areas
         for surrAreaN in pArea.get_adjacent_areas_names():
             # if adjacent area also belongs to player, add it to channel 1
             surrArea = board.get_area(surrAreaN)
             adjOwner = surrArea.get_owner_name()
             if (adjOwner == player_name):
-                boardOut[0][n][surrAreaN] = 1
+                boardOut[0][n-1][surrAreaN-1] = 1
             else:
                 m = (adjOwner + 4 - player_name) % 4
-                boardOut[m+1][n][surrAreaN] = probability_of_successful_attack(
-                    board, n, surrAreaN)
+                boardOut[m][n-1][surrAreaN-1] = 1 + surrArea.get_dice()
 
     # global parameters:
     paramOut = torch.zeros(12)
@@ -177,8 +182,10 @@ def build_nn_input(board: Board, player_name: int):
         paramOut[playerOrd + 0] = areaCount
         paramOut[playerOrd + 1] = armyStrength
         paramOut[playerOrd + 2] = largestArea
+
+    output = torch.cat([boardOut.reshape(-1), paramOut])
     
-    return torch.cat([boardOut.reshape(-1), paramOut])
+    return output
 
     
 

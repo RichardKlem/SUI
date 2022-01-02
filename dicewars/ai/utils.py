@@ -159,7 +159,6 @@ def attack_succcess_probability(atk, df):
         },
     }[atk][df]
 
-
 def possible_attacks(board: Board, player_name: int) -> Iterator[Tuple[Area, Area]]:
     for area in board.get_player_border(player_name):
         if not area.can_attack():
