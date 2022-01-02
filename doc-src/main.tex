@@ -1,0 +1,210 @@
+\documentclass[12pt]{article}
+\usepackage[czech]{babel}
+\usepackage{natbib}
+\usepackage{url}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{vmargin}
+\setmarginsrb{3 cm}{2.5 cm}{3 cm}{2.5 cm}{1 cm}{1.5 cm}{1 cm}{1.5 cm}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{array}
+\newcolumntype{?}[1]{!{\vrule width #1}}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=red,
+    filecolor=red,
+    urlcolor=blue,
+    citecolor=red,
+    linktoc=none
+    }
+
+
+\makeatletter
+\let\thetitle\@title
+
+
+\makeatother
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\theauthor}
+\lhead{\thetitle}
+\cfoot{\thepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{titlepage}
+	\centering
+	\hspace{1 cm}
+    \includegraphics[scale = 0.35]{FIT_logo.png}\\[1.0 cm]	% University Logo
+    \hspace{1 cm}
+    \textsc{\LARGE Projektová dokumentace} \\[2.0 cm]
+    \textsc{\LARGE Implementace AI pro hraní hry} \\[0.5 cm]
+    \textsc{\LARGE Dicewars} \\[1 cm]
+
+
+	\quad\rule{15 cm}{0.2 mm}
+	{ \huge \bfseries \thetitle}\\
+	
+	\vspace{1 cm}
+	\begin{minipage}{0.45\textwidth}
+            \newline
+			\begin{flushleft}
+			\emph{Autoři:} \\
+			\textbf{\textbf{Richard Klem (xklemr00)}}\linebreak
+			Tomáš Beránek (xberan46) \linebreak
+			Dráber Filip (xdrabe09) \linebreak
+			Daniel Kamenický (xkamen21) \linebreak
+             \linebreak
+             \end{flushleft}
+	\end{minipage}\\[0 cm]
+	
+    \vspace{6 cm}
+    \begin{flushleft}
+        Datum odevzdání:\hspace{2 cm}\textbf{2. ledna 2022} \linebreak
+    \end{flushleft}
+
+	\vfill
+    \fancyhf{}
+    \fancyhead[R]{18. prosince 2020}	
+\end{titlepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\contentsname}{Obsah}
+\tableofcontents
+\pagebreak
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\afterpage{\cfoot{\thepage }}
+
+\section{Úvod}
+Cílem tohoto projektu je implementovat AI hrající upravenou verzi hry Dicewars. V této upravené verzi je možné navíc přesouvat kostky mezi vlastními územími. Tato úprava velmi zvyšuje komplexnost hry a možnost strategizovat. Spuštění bota v každém tahu lze stručně popsat následujícími kroky:
+\begin{enumerate}
+    \item \textbf{Přesun kostek} mezi vlastními poli směrem ke slabým místům hranice.
+    \item \textbf{Prohledávání} stavového prostoru pomocí Monte Carlo.
+    \item \textbf{Nastavení vah} pro výpočet ohodnocení listových uzlů pomocí CNN\footnote{CNN -- convolutional neural network.}.
+    \item \textbf{Vyhodnocení} nejlepšího tahu.
+\end{enumerate}
+
+Tato dokumentace popisuje zejména obecný princip fungování bota. Nejsou zde do detailu popisovány zdrojové kódy. Ty jsou okomentované a k nahlédnutí v GitHub repozitáři projektu\footnote{GitHub repozitář -- \url{https://github.com/RichardKlem/SUI}.}.
+
+\section{Přesuny kostek}
+\label{transfer}
+V každém tahu má bot k dipozici \textbf{pět přesunů} mezi vlastními poli. Přesouvání kostek probíhá vždy na začátku tahu, před provedením všech akcí. Vždy je využito \textbf{všech} přesunů. Pro přesouvání jsme zvolili metodu \textbf{posilování hranic}. To znamená, že se snažíme identifikovat nejslabší pole, které hraničí s nepřátelskými poli a posílit jeho počet kostek. Ohodnocení síly jednotlivých hraničních polí je vypočítáno jako:
+
+\[ border\_strength = \frac{border.dices + sum(border.neighbours.dices)}{cnt(border.neighbours)} \]
+
+Jedná se o jednoduchý průměr hraničního pole a sousedících spojeneckých polí. Jako nejslabší hraniční pole je pak vybráno pole s nějnižší hodnotou \texttt{border\_strength}. 
+
+Důvodem proč je použit průměr i okolních polí a né pouze počet kostek pole na hranici je, že takto jsme schopni lépe identifikovat \textbf{slabší oblasti}. Pokud by například byly tři sousedící hraniční pole oslabena na jednu kostku, tak chceme aby bylo posíleno prostřední pole. Při útoku nepřítele, by pak s největší pravděpodobností bylo ubráněno právě prostřední pole a tím by se rozštěpilo soupeřovo území -- bude lehčí jej zabrat zpět.
+
+Dalším příkladem je situace, kdy sice jedno hraniční pole je slabé, ale okolo už jsou silná pole. Zde by se nabízelo přesunout kostky na oslabenou hranici, pokud by ovšem na jiné části hranice bylo slabé pole, za kterým jsou vnitroúzemní pole taky slabá, tak je rozumnější posílit hranici na tomto místě. Je totiž lepší obětovat jedno pole místo několika polí, kde by nepřítel mohl např. rozdělit naši oblast.
+
+Samotné shánění kostek je implementováno pomocí jednoduchého DFS\footnote{DFS -- depth-first search.} algoritmu, kde kořenovým uzlem je aktuální nejslabší hraniční pole. DFS tak nalezne nejlepší možné přesuny -- \textbf{nejvíce kostek za co nejméně tahů}. Při procházení jsou samozřejmě eliminovány již navštívená pole. Aby nedocházelo ke stavové explozi, tak kostky hledáme pouze do \textbf{vzdálenosti/hloubky tři} (pokud máme k dispozici tři a více přesunů, jinak prohládáváme podle zbývajících přesunů), tzn. abychom provedli tři přesuny.
+
+
+\section{Prohledávání stavového prostoru}
+Zadání předepisuje, že je nutné použít prohledávání stavového prostoru v implementaci bota. Prvotním přístupem k prohledávání bylo použití \textbf{MaxN algoritmu}. Bohužel se ukázalo, že je poměrně pomalý a po dohodě byla implementována druhá verze prohledávání a to pomocí metody \textbf{Monte Carlo s adaptivním počtem prohledaných uzlů}. Implementace MaxN algoritmu byla ponechána ve zdrojových souborech, ale při běhu bota není využita.
+
+\subsection{MaxN algoritmus}
+\label{maxn}
+Při implementaci MaxN algoritmu bylo čerpáno zejména z článku \cite{maxn} a přednášek. Již před samotnou implementací bylo jasné, že hlavními problémy budou:
+\begin{enumerate}
+    \item Vytvoření vhodné \textbf{hodnotící funkce}.
+    \item \textbf{Rychlost} prohledávání.
+\end{enumerate}
+
+Při implemetaci jsme narazili na problém, že bot nechtěl dělat utočné tahy a pouze ukončoval tah. Tendence ukončování tahu se zvyšovala s počtem zabraných polí, tzn. čím blíže byl bot k vítezství, tím více prokrastinoval a často se stávalo, že odmítal zaútočit na poslední pole nepřítele a kvůli tomu prohrál. Toto bylo zřejmě způsobeno chybným nastavením vah (nastaveno zatím pouze ručně). Pro vykompenzování neútočení, byla dočasně vložena \textbf{adaptivní agresivita}. V podstatě se penalizovala hodnota akce ukončit tah a čím blíže k vítezství bot byl, tím byla penalizace větší a bot agresivnější. Penalizace se zapínala ve chvíli, kdy bot měl více jak polovinu mapy a hodnota penalizace nemohla přesáhnout 10\%.
+
+\subsubsection*{Hodnotící funkce}
+\label{function}
+Hodnotící funkce slouží k ohodnocení listového uzlu, abychom věděli, jak moc je pro nás daný uzel (stav hry) dobrý. Nejhorší hodnocení je 0 -- prohra a nejlepší \texttt{max\_int} -- výhra. Hodnotící funkce je definována vzorcem:
+
+\[ F(X) = X^T \cdot \begin{bmatrix}
+SCORE\_WEIGHT \\
+REGIONS\_WEIGHT \\
+AREAS\_EIGHT \\
+BORDER\_FILLING\_WEIGHT \\
+BORDERS\_WEIGHT \\
+NEIGHBOURS\_WEIGHT
+\end{bmatrix} \hspace{1cm} kde \hspace{0.2cm} X = \begin{bmatrix}
+score \\
+regions \\
+areas \\
+border \\
+borders \\
+neighbours
+\end{bmatrix} \]
+
+Jednotlivé hodnoty matice X jsou informace získané z aktuálního stavu hrací desky pro hráče, který je právě na tahu (statistiky se týkaji pouze polí hráče na tahu):
+\begin{itemize}
+    \item \textbf{score} -- velikost největší vlastněné spojité oblasti, normalizována do intervalu $\langle 0, 1 \rangle$ pomocí celkového počtu všech polí.
+    \item \textbf{regions} -- převrácená hodnota počtu všech vlastněných oblastí, normalizována do intervalu $\langle 0, 1 \rangle$ pomocí počtu vlastěných polí.
+    \item \textbf{areas} -- počet vlastěných polí, normalizován do intervalu $\langle 0, 1 \rangle$ pomocí celkového počtu všech polí.
+    \item \textbf{border} -- zaplněnost hraničních polí, normalizována do intervalu $\langle 0, 1 \rangle$ pomocí maximálního počtu kostek na hranici.
+    \item \textbf{borders} -- počet hraničních polí.
+    \item \textbf{neighbours} -- počet sousedství -- udává jak moc je možné přesouvat kostky mezi vlastními poli. Čím více sousedství (propojení), tím je vlastněná oblast kompaktnější a přesuny jsou snadnější.
+\end{itemize}
+
+Výše zmíněné statistiky jsou zkonstruovány tak, aby větší hodnota znamenala větší užitek (větší hodnota -- lepší).
+
+Optimalizování hodnot jednotlivých vah by bylo velmi náročné. Bylo by možné je optimalizovat ručně, nebo využít nějakého optimalizačního algoritmu. Jelikož je v tomto projektu vyžadováno použití strojového učení, tak jsme se rozhodli využít CNN pro nastavování vah. Váhy jsou dynamické a jsou nastavovány v každem stavu zvlášť podle aktuální situace na desce, více o nastavování vah v kapitole \ref{cnn}.
+
+\subsubsection*{Optimalizace}
+\label{optim}
+V našem řešení byla rychlost MaxN algoritmu velmi problematická. Abychom urychlili prohledávání, bylo nutné snížit počet prohledáváných uzlů. Byly použity následující techniky:
+\begin{enumerate}
+    \item \textbf{Omezení hloubky} prohledávání.
+    \item Zahození uzlů, kde \textbf{útok má šanci na úspěch} $<$ 55\% a zároveň utočící pole má $<$ 4 kostky.
+    \item Zahození uzlů, kde pravděpodobnost \textbf{udržení zabraného pole} do dalšího tahu je $>$ 30\% pro 2 hráče, 40\% pro 4 hráče atd. A zároveň utočící i bránící pole mají méně než 8 kostek každé.
+    \item Neuvažujeme \textbf{náhodné rozdělení} kostek po každém tahu.
+    \item Neuvažujeme \textbf{přesuvy} nepřítele.
+\end{enumerate}
+
+Po implementaci výše zmíněných technik však bot byl schopen prohledat prostor v daném časovém limitu pouze do hloubky 2 (kořen je značen jako 0tá hloubka). Kvůli této malé hloubce nebyl implementován ani alph-beta prunning, který by v tomto případě až tolik nepomohl. Rozhodli jsme se proto využít metody Monte Carlo.
+
+\subsection{Monte Carlo prohledávání}
+\label{monte}
+Monte Carlo implementace využívá stejné hodnotící funkce a technik pro odstranění neprohledávaných stavů jako MaxN implementace. Abychom plně využili veškerý čas, který máme k dispozici využíváme \textbf{adaptivního počtu cest} -- určován podle zbývajícího času. 
+
+Při prvním spuštění tahu bota je počet cest nastaven na 200 a je změřena doba, jakou prohledávání zabralo. V dalším tahu je počet cest nastaven tak, aby zabral 90\% zbývajícího času. Ovšem maximální počet je 5 000, protože prohledáváme do \textbf{hloubky 4}. Kdybychom uvažovali faktor větvení 10, tak v hloubce 4 bude 10 000 uzlů. A když omezíme prohledávání na maximálně 5 000, tak je prohledána polovina všech uzlů, což je více než dost. Nicméně na počítači, na kterém to bylo testováno (obdobné CPU jako na referenčním stroji) bylo možné projít za inkrement přibližně 300 - 400 cest. Přičemž je nutné uvažovat i inkrementy za ukončení tahu a přesuny, počet prohledaných cest se tak může dostat až k \textbf{1 000} (bot typicky nedělal útoky více než 5x za tah), což je poměrně dostatečné pokrytí -- 10\%. Cesty jsou vybírány zcela \textbf{náhodně}.
+
+\section{Konvoluční neuronová síť}
+\label{cnn}
+
+\section{Naměřené výsledky}
+Před zapojením CNN, byly defaultní váhy nastaveny ručně a jemně doladěny:
+
+\[
+\begin{bmatrix}
+SCORE\_WEIGHT \\
+REGIONS\_WEIGHT \\
+AREAS\_EIGHT \\
+BORDER\_FILLING\_WEIGHT \\
+BORDERS\_WEIGHT \\
+NEIGHBOURS\_WEIGHT
+\end{bmatrix} = \begin{bmatrix}
+3 \\
+10 \\
+15 \\
+3 \\
+3 \\
+1
+\end{bmatrix}
+\]
+
+Při spuštění turnaje o 100 hrách proti všem dostupným botům byl poměr vítezství vytvořeného bota \textbf{33\%} (bot se účastnil všech her). Tento výsledek je však pouze mezivýsledkem a proto nebyl testován na větším počtu her.
+
+
+\newpage
+\bibliography{SUI-bib} 
+\bibliographystyle{bib-styles/czplain}
+\end{document}
